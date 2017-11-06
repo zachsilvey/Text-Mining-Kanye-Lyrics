@@ -1,0 +1,3 @@
+-May want to look at songs on the line-level, should be able to separate the lines by looking for new line character. This should have been retained in the data file.
+-May possibly be able to look at songs at the component level (verse, corus, etc.)
+-Look at Murder vs. Excellence in song Murder to Excellence
