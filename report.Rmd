@@ -1,0 +1,38 @@
+---
+title: "Text Mining Kanye West"
+author: "Zach Silvey"
+date: "November 12, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Motivation
+
+I became interested in text mining after attending a talk by [Julia Silge](https://twitter.com/juliasilge) at the Portland R User meetup group. She was demoing some of the concepts from her new book Text Mining With R: A Tidy Approach, coauthored by [David Robinson](https://twitter.com/drob). The book covers basics of text mining with practical exapmles in the context of their recently released R package [`tidytext`](https://cran.r-project.org/web/packages/tidytext/index.html). Text mining is interesting to me from both a personal and professional perspective, as a market research I often am dealing with open-ended survey responses and text mining seemed like a great way to get more value out of those data. After finishing the book I figured what better way to demos some of my new skills than to do a text analysis project. This is that projects, my aim is to include an analysis from each of the chapters in the book.
+
+## The data
+
+Survey data is my bread and butter but even I can admit that it isn't generally the most exciting. So after some thought I figured I'd go with a data source that is more pop-culturally relavent by using song lyrics. And who would make a better subject than Kanye West. More specifically, I collected the lyrics from all of the songs on Kanye's core discography. This includes his 7 studio releases, no deluxe editions or b-sides. I initally wanted to use this as a chance to work on my web scraping skills but after messing with it for a couple days I went ahead and collected the data manually. My source was [genius](http://genius.com), from there I pulled: album, song title, year released, length, featured artist(s), writer(s), and whether the track was a skit or not. I organized the data in Excel and then exported it as a CSV for easy ingestion into R. 
+
+## Packages
+The required packages used in this analysis are
+```{r packages, message=FALSE}
+library(tidyverse)
+library(tidytext)
+```
+
+## Importing and cleaning the data
+
+The dataset was manually and therefore was kept fairly simple and relatively clean so necessary cleaning is minimal. The first thing I did was create a new `runtime` variable to store song lenght in seconds, then I removed text between [ and ] in the `lyrics` column. Genius uses text surrounded by square brakets to indicate parts of songs (e.g., verse, chorus, bridge, etc.), while these may be useful for more advanced analyses I chose to remove them for simplicity here.
+```{r data_import}
+lyrics <- read_csv("Data/Kanye Lyrics (beta1).csv", 
+                   col_types = cols(`Run-time` = col_character())) %>%
+  separate("Run-time", c("minutes", "seconds"), sep = ":", convert = TRUE) %>%
+  mutate("run_time" = (minutes * 60) + seconds) %>%
+  mutate(Lyrics = str_replace_all(Lyrics, "\\[[^]]*]", "")) %>%
+  select(-minutes, -seconds)
+
+glimpse(lyrics)
