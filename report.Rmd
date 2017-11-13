@@ -36,3 +36,73 @@ lyrics <- read_csv("Data/Kanye Lyrics (beta1).csv",
   select(-minutes, -seconds)
 
 glimpse(lyrics)
+```
+
+## Word frequencies
+
+A common place to start a text mining analysis is to look at term frequencies. This gives us an idea of the type of words that are being used in our documents of interest. We can examine term frequencies with a few simple commands. The first step is to tokenize the text, in this case into single words. To tokenize we use the `unnest_tokens()` function.
+```{r term_freqs}
+lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  count(word, sort = TRUE)
+```
+Upon examination we see that the most common words found across Kanye West lyrics are not that interesting. This is true in almost any corpora of natural language. These words fall into a category of text called stop words, and `tidytext` provides a quick way to remove them. But before we remove the stop words we should take not that the most common word in Kanye's lyrics is "I". To those familiar with Kanye's antics this will come as no surprise.
+```{r stop_words}
+lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  anti_join(stop_words) %>%
+  count(word, sort = TRUE)
+```
+With the addition of a single `anti_join` we removed the stop words and are left with words containing more information. Interestingly love comes to the top, a topic Kanye often addresses in his work. Let look at the ocurrance of "love" across his albums.
+```{r love}
+album_totals <- lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  anti_join(stop_words) %>%
+  group_by(Album) %>%
+  count(word) %>%
+  summarise(total = sum(n))
+  
+lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  anti_join(stop_words) %>%
+  filter(word == "love") %>%
+  count(word, Album) %>%
+  inner_join(album_totals) %>%
+  mutate(freq = n/total) %>%
+  arrange(-freq)
+```
+When we rank Kanye's albums by number of occurance of the word love, "808s & Heartbreak" rises to the top. If you've read Kanye's [Wikipedia](https://en.wikipedia.org/wiki/Kanye_West) page you'll know that he  made 808s soon after his mother passed away and his then fiance ended their engament. Another trend we see when looking at "love" is that it appears there is a relationship between occurance of the term and tenure in his career, with love appearing more commonly on his newer works. 
+```{r love_plot}
+year_totals <- lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  anti_join(stop_words) %>%
+  group_by(Year) %>%
+  count(word) %>%
+  summarise(total = sum(n))
+
+lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  anti_join(stop_words) %>%
+  filter(word == "love") %>%
+  count(word, Year) %>%
+  inner_join(year_totals) %>%
+  mutate(freq = n/total) %>%
+  ggplot(aes(Year, freq)) +
+  geom_point(show.legend = FALSE) +
+  geom_smooth(method = "lm", se = TRUE)
+```
+
+A relationship made even more obvious when we remove the outlier of 808s.
+
+```{r love_plot2}
+lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  anti_join(stop_words) %>%
+  filter(word == "love" & Year != 2008) %>%
+  count(word, Year) %>%
+  inner_join(year_totals) %>%
+  mutate(freq = n/total) %>%
+  ggplot(aes(Year, freq)) +
+  geom_point(show.legend = FALSE) +
+  geom_smooth(method = "lm", se = TRUE)
+```
