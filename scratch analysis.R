@@ -51,3 +51,65 @@ tidy_lyrics %>%
   count(Album, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
   mutate(sentiment = positive - negative)
+
+lyrics <- read_csv("Data/Kanye Lyrics (beta2).csv", 
+                   col_types = cols(`Run-time` = col_character())) %>%
+  separate("Run-time", c("minutes", "seconds"), sep = ":", convert = TRUE) %>%
+  mutate("run_time" = (minutes * 60) + seconds) %>%
+  mutate(Lyrics = str_replace_all(Lyrics, "\\[[^]]*]", "")) %>%
+  mutate(Album = as.factor(Album)) %>%
+  mutate(Album = factor(Album, levels(Album)[c(5,3,2,1,4,7,8,6)]))
+  select(-minutes, -seconds)
+
+glimpse(lyrics)
+
+# Plot top 10 terms per album
+lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  anti_join(stop_words) %>%
+  count(Album, word, sort = TRUE) %>%
+  filter(Album != "NA") %>%
+  group_by(Album) %>%
+  top_n(10) %>%
+  ggplot(aes(reorder(word, n), n)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  coord_flip() +
+  facet_wrap(~ Album, scales = "free", ncol = 3)
+
+# Plot top 10 terms by tf-idf for each album
+lyrics %>%
+  filter(Skit == "N") %>%
+  unnest_tokens(word, Lyrics) %>%
+  count(Album, word) %>%
+  bind_tf_idf(word, Album, n) %>%
+  group_by(Album) %>%
+  top_n(10, tf_idf) %>%
+  ggplot(aes(reorder(word, tf_idf), tf_idf, fill = Album)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  facet_wrap(~ Album, scales = "free", ncol = 3) +
+  labs(x = "term", y = "tf-idf", title = "Term Frequency-Inverse Document Frequency Among Kanye West Albums")
+
+term_counts_album <- lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  anti_join(stop_words) %>%
+  count(Album, word, sort = TRUE) %>%
+  group_by(Album) %>%
+  top_n(10)
+
+album_totals <- lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  group_by(Album) %>%
+  count(word) %>%
+  summarise(total = sum(n))
+
+term_counts_album %>%
+  inner_join(album_totals) %>%
+  mutate(freq = n/total) %>%
+  arrange(-freq)
+
+album_fac <- as.factor(lyrics$Album)
+
+album_fac <- factor(album_fac, levels(album_fac)[c(5,3,2,1,4,7,8,6)])
+
+levels(album_fac)

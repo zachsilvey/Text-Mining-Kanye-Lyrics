@@ -2,7 +2,11 @@
 title: "Text Mining Kanye West"
 author: "Zach Silvey"
 date: "November 12, 2017"
-output: html_document
+output:
+  html_document:
+    highlight: default
+    theme: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -13,6 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 I became interested in text mining after attending a talk by [Julia Silge](https://twitter.com/juliasilge) at the Portland R User meetup group. She was demoing some of the concepts from her new book Text Mining With R: A Tidy Approach, coauthored by [David Robinson](https://twitter.com/drob). The book covers basics of text mining with practical exapmles in the context of their recently released R package [`tidytext`](https://cran.r-project.org/web/packages/tidytext/index.html). Text mining is interesting to me from both a personal and professional perspective, as a market research I often am dealing with open-ended survey responses and text mining seemed like a great way to get more value out of those data. After finishing the book I figured what better way to demos some of my new skills than to do a text analysis project. This is that projects, my aim is to include an analysis from each of the chapters in the book.
 
+All code and data for this project are available on [GitHub](https://github.com/zachsilvey/Text-Mining-Kanye-Lyrics).
+
 ## The data
 
 Survey data is my bread and butter but even I can admit that it isn't generally the most exciting. So after some thought I figured I'd go with a data source that is more pop-culturally relavent by using song lyrics. And who would make a better subject than Kanye West. More specifically, I collected the lyrics from all of the songs on Kanye's core discography. This includes his 7 studio releases, no deluxe editions or b-sides. I initally wanted to use this as a chance to work on my web scraping skills but after messing with it for a couple days I went ahead and collected the data manually. My source was [genius](http://genius.com), from there I pulled: album, song title, year released, length, featured artist(s), writer(s), and whether the track was a skit or not. I organized the data in Excel and then exported it as a CSV for easy ingestion into R. 
@@ -22,17 +28,20 @@ The required packages used in this analysis are
 ```{r packages, message=FALSE}
 library(tidyverse)
 library(tidytext)
+library(scales)
 ```
 
 ## Importing and cleaning the data
 
 The dataset was manually and therefore was kept fairly simple and relatively clean so necessary cleaning is minimal. The first thing I did was create a new `runtime` variable to store song lenght in seconds, then I removed text between [ and ] in the `lyrics` column. Genius uses text surrounded by square brakets to indicate parts of songs (e.g., verse, chorus, bridge, etc.), while these may be useful for more advanced analyses I chose to remove them for simplicity here.
 ```{r data_import}
-lyrics <- read_csv("Data/Kanye Lyrics (beta1).csv", 
+lyrics <- read_csv("Data/Kanye Lyrics (beta2).csv", 
                    col_types = cols(`Run-time` = col_character())) %>%
   separate("Run-time", c("minutes", "seconds"), sep = ":", convert = TRUE) %>%
   mutate("run_time" = (minutes * 60) + seconds) %>%
   mutate(Lyrics = str_replace_all(Lyrics, "\\[[^]]*]", "")) %>%
+  mutate(Album = as.factor(Album)) %>%
+  mutate(Album = factor(Album, levels(Album)[c(5,3,2,1,4,7,8,6)])) %>%
   select(-minutes, -seconds)
 
 glimpse(lyrics)
@@ -44,34 +53,53 @@ A common place to start a text mining analysis is to look at term frequencies. T
 ```{r term_freqs}
 lyrics %>%
   unnest_tokens(word, Lyrics) %>%
-  count(word, sort = TRUE)
+  count(word, sort = TRUE) %>%
+  top_n(20) %>%
+  ggplot(aes(reorder(word, -n), n)) +
+  geom_col(show.legend = FALSE) +
+  theme(axis.text.x = element_text(angle = -90, hjust = 1)) +
+  labs(x = "Word", y = "Occurances", title = "Most common words in Kanye's lyrics")
 ```
+
 Upon examination we see that the most common words found across Kanye West lyrics are not that interesting. This is true in almost any corpora of natural language. These words fall into a category of text called stop words, and `tidytext` provides a quick way to remove them. But before we remove the stop words we should take not that the most common word in Kanye's lyrics is "I". To those familiar with Kanye's antics this will come as no surprise.
 ```{r stop_words}
 lyrics %>%
   unnest_tokens(word, Lyrics) %>%
   anti_join(stop_words) %>%
-  count(word, sort = TRUE)
+  count(word, sort = TRUE) %>%
+  top_n(20) %>%
+  ggplot(aes(reorder(word, -n), n)) +
+  geom_col(show.legend = FALSE) +
+  theme(axis.text.x = element_text(angle = -90, hjust = 1)) +
+  labs(x = "Word", y = "Occurances", title = "Most common words in Kanye's lyrics")
 ```
-With the addition of a single `anti_join` we removed the stop words and are left with words containing more information. Interestingly love comes to the top, a topic Kanye often addresses in his work. Let look at the ocurrance of "love" across his albums.
+
+With the addition of a single `anti_join` we removed the stop words and are left with words containing more information. Somewhat interestingly, love comes to the top, a topic that doesn't seem to be attributed to Kanye's work in popular culture. Let look at the ocurrance of "love" across his albums.
 ```{r love}
-album_totals <- lyrics %>%
+album_words <- lyrics %>%
   unnest_tokens(word, Lyrics) %>%
-  anti_join(stop_words) %>%
-  group_by(Album) %>%
-  count(word) %>%
-  summarise(total = sum(n))
+  count(Album, word, sort = TRUE) %>%
+  ungroup()
   
-lyrics %>%
-  unnest_tokens(word, Lyrics) %>%
+album_totals <- album_words %>%
+  group_by(Album) %>%
+  summarize(total = sum(n))
+
+album_words <- album_words %>%
+  inner_join(album_totals) %>%
+  mutate(freq = n / total)
+
+album_words %>%
   anti_join(stop_words) %>%
   filter(word == "love") %>%
-  count(word, Album) %>%
-  inner_join(album_totals) %>%
-  mutate(freq = n/total) %>%
-  arrange(-freq)
+  ggplot(aes(factor(Album, levels = rev(levels(Album))), freq, fill = Album)) +
+  geom_col(show.legend = FALSE) +
+  scale_y_continuous(label = percent) +
+  coord_flip() +
+  labs(x = "Album", y = "Frequency of love", title = "Frequency of usage of the word love across Kanye's albums")
 ```
-When we rank Kanye's albums by number of occurance of the word love, "808s & Heartbreak" rises to the top. If you've read Kanye's [Wikipedia](https://en.wikipedia.org/wiki/Kanye_West) page you'll know that he  made 808s soon after his mother passed away and his then fiance ended their engament. Another trend we see when looking at "love" is that it appears there is a relationship between occurance of the term and tenure in his career, with love appearing more commonly on his newer works. 
+
+When we rank Kanye's albums by frequency of occurance of the word love, "808s & Heartbreak" rises to the top. If you've read Kanye's [Wikipedia](https://en.wikipedia.org/wiki/Kanye_West) page you'll know that he  made 808s soon after his mother passed away and his then fiance ended their engament. Another trend we see when looking at "love" is that it appears there is a relationship between occurance of the term and tenure in his career, with love appearing more commonly on his newer works. 
 ```{r love_plot}
 year_totals <- lyrics %>%
   unnest_tokens(word, Lyrics) %>%
