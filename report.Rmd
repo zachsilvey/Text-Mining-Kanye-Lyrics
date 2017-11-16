@@ -6,6 +6,8 @@ output:
   html_document:
     highlight: default
     theme: default
+    fig_width: 10
+    fig_height: 8
   pdf_document: default
 ---
 
@@ -29,6 +31,7 @@ The required packages used in this analysis are
 library(tidyverse)
 library(tidytext)
 library(scales)
+library(gridExtra)
 ```
 
 ## Importing and cleaning the data
@@ -99,7 +102,8 @@ album_words %>%
   labs(x = "Album", y = "Frequency of love", title = "Frequency of usage of the word love across Kanye's albums")
 ```
 
-When we rank Kanye's albums by frequency of occurance of the word love, "808s & Heartbreak" rises to the top. If you've read Kanye's [Wikipedia](https://en.wikipedia.org/wiki/Kanye_West) page you'll know that he  made 808s soon after his mother passed away and his then fiance ended their engament. Another trend we see when looking at "love" is that it appears there is a relationship between occurance of the term and tenure in his career, with love appearing more commonly on his newer works. 
+When we rank Kanye's albums by frequency of occurance of the word love, "808s & Heartbreak" rises to the top. If you've read Kanye's [Wikipedia](https://en.wikipedia.org/wiki/Kanye_West) page you'll know that he  made 808s soon after his mother passed away and his then fiance ended their engament. We also see that 808s marks a key point in his career, up until then he rarely mentioned love but afterwards there is a roughly four-fold increase in frequency of use. We can examine this apparent relationship more closely by plotting a linear regregression trend line.
+
 ```{r love_plot}
 year_totals <- lyrics %>%
   unnest_tokens(word, Lyrics) %>%
@@ -133,4 +137,97 @@ lyrics %>%
   ggplot(aes(Year, freq)) +
   geom_point(show.legend = FALSE) +
   geom_smooth(method = "lm", se = TRUE)
+```
+
+Next lets look at frequent words for each album in Kanye's discography. 
+
+```{r album_freqs, echo=FALSE, message=FALSE}
+par(mfrow = c(3, 4))
+tcd <- album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album == "The College Dropout") %>%
+  top_n(10, freq) %>%
+  ggplot(aes(reorder(word, freq), freq)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.015))
+
+lr <- album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album == "Late Registration") %>%
+  top_n(10, freq) %>%
+  ggplot(aes(reorder(word, freq), freq)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.015))
+
+grad <- album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album == "Graduation") %>%
+  top_n(10, freq) %>%
+  ggplot(aes(reorder(word, freq), freq)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.015))
+
+eoe <- album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album == "808s & Heartbreak") %>%
+  top_n(10, freq) %>%
+  ggplot(aes(reorder(word, freq), freq)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.015))
+
+mbdtf <- album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album == "My Beautiful Dark Twisted Fantasy") %>%
+  top_n(10, freq) %>%
+  ggplot(aes(reorder(word, freq), freq)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.015))
+
+wtt <- album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album == "Watch the Throne") %>%
+  top_n(10, freq) %>%
+  ggplot(aes(reorder(word, freq), freq)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.015))
+
+yez <- album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album == "Yeezus") %>%
+  top_n(10, freq) %>%
+  ggplot(aes(reorder(word, freq), freq)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.015))
+
+tlop <- album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album == "The Life of Pablo") %>%
+  top_n(10, freq) %>%
+  ggplot(aes(reorder(word, freq), freq)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.015))
+
+grid.arrange(tcd, lr, grad, eoe, mbdtf, wtt, yez, tlop, ncol = 3)
+```
+
+One thing that quickly becomes apprant when looking at frequent words per album is that many of the most frequent words appear to be hip-hop specific stop words. Words like "gonna" or "y'all" are slang terms that represent two words that would otherwise be stop words. In a similar vein we see many of Kanye's signiture ad-libs show up as frequent terms (e.g., uh, la, ya). One way we could potentially tackle this problem would be to create a custom domain-specific list of stop words but that would be very labor intensive. Alternatively, if we make the assumption that many of these hop-hop stop words occur commonly across Kanye's albums we can take a different approach where we examine words that appear commonly on a given album but not across multiple albums. Term frequency-inverse document frequency is a statistic that does just that and `tidytext` makes it easy to calculate using `bind_tf_idf()`. While using tf-idf in this way does not accomplish exactly the same thing it does give a picture of the uniquely frequent words on each album.
+
+```{r tf_idf}
+album_words %>%
+  bind_tf_idf(word, Album, n) %>%
+  group_by(Album) %>%
+  top_n(5, tf_idf) %>%
+  ggplot(aes(reorder(word, tf_idf), tf_idf, fill = Album)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  facet_wrap(~ Album, scales = "free_y", ncol = 3) +
+  labs(x = "Word", y = "tf-idf", title = "Uniquely frequent terms among Kanye's albums")
 ```

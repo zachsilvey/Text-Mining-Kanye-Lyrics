@@ -113,3 +113,39 @@ album_fac <- as.factor(lyrics$Album)
 album_fac <- factor(album_fac, levels(album_fac)[c(5,3,2,1,4,7,8,6)])
 
 levels(album_fac)
+
+album_words <- lyrics %>%
+  unnest_tokens(word, Lyrics) %>%
+  count(Album, word, sort = TRUE) %>%
+  ungroup()
+
+album_totals <- album_words %>%
+  group_by(Album) %>%
+  summarize(total = sum(n))
+
+album_words <- album_words %>%
+  inner_join(album_totals) %>%
+  mutate(freq = n / total)
+
+album_words %>%
+  anti_join(stop_words) %>%
+  filter(Album != "NA") %>%
+  group_by(Album) %>%
+  summarize(max = max(freq))
+
+# Trying to independently order bars within this plot
+album_words %>%
+  group_by(Album) %>%
+  top_n(10, freq) %>%
+  ungroup() %>%
+  arrange(word, freq) %>%
+  mutate(order = row_number()) %>%
+  ggplot(aes(order, freq, fill = Album)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  coord_flip() +
+  facet_wrap(~ Album, scales = "free", ncol = 3) +
+  scale_x_continuous(
+    breaks = order,
+    labels = word,
+    expand = c(0,0)
+  )
