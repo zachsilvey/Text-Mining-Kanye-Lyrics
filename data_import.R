@@ -2,6 +2,7 @@ library(readr)
 library(tidyr)
 library(dplyr)
 library(stringr)
+library(tidyverse)
 
 # Import lyrics data from CSV
 lyrics <- read_csv("Data/Kanye Lyrics (beta2).csv", 
@@ -19,3 +20,24 @@ lyrics <- read_csv("Data/Kanye Lyrics (beta2).csv",
 
 #lyrics$Album <- as.factor(lyrics$Album)
 
+lyrics <- read_csv("Data/Kanye Lyrics (beta2).csv",
+                   col_types = cols(Album = col_factor(levels = c("The College Dropout", 
+                                                                  "Late Registration", "Graduation", 
+                                                                  "808s & Heartbreak", "My Beautiful Dark Twisted Fantasy", 
+                                                                  "Watch the Throne", "Yeezus", "The Life of Pablo")))) %>%
+  mutate(Lyrics = str_replace_all(Lyrics, "\\[[^]]*]", ""))
+
+lyrics <- read_csv("Data/Kanye Lyrics (beta2).csv", 
+                   col_types = cols(Album = col_factor(levels = c("The College Dropout", 
+                                                                  "Late Registration", "Graduation", 
+                                                                  "808s & Heartbreak", "My Beautiful Dark Twisted Fantasy", 
+                                                                  "Watch the Throne", "Yeezus", "The Life of Pablo"))))
+
+lyrics <- read_csv("Data/Kanye Lyrics (beta2).csv", 
+                   col_types = cols(Album = col_factor(levels = c("The College Dropout", 
+                                                                  "Late Registration", "Graduation", 
+                                                                  "808s & Heartbreak", "My Beautiful Dark Twisted Fantasy", 
+                                                                  "Watch the Throne", "Yeezus", "The Life of Pablo")))) %>%
+  mutate(Lyrics = str_replace_all(Lyrics, "\\[[^]]*]", ""))
+
+glimpse(lyrics)
